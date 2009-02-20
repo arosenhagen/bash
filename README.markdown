@@ -1,9 +1,7 @@
-This is a collection of my bash exension.
+This is a collection of my bash exensions.
 
 ## Usage
 
-Edit your `.bash_profile` using favourite browser:
+Edit your `.profile` using favourite editor:
 
-    mate ~/.bash_profile
-    
-Copy all other files to your user directory and make sure you have the rights to execute them.
+mate ~/.profile
