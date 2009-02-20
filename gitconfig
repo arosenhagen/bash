@@ -1,0 +1,14 @@
+[user]
+        name = YOUR NAME
+        email = YOUR EMAIL
+[alias]
+        co = checkout
+        st = status
+        ci = commit
+        br = branch
+        co = checkout
+        df = diff
+        lg = log -p
+
+[apply]
+        whitespace = nowarn
