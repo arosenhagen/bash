@@ -22,25 +22,60 @@ alias ss='ruby script/server' #start ruby server for the project
 
 
 ###########
-# git svn #
+# GIT-SVN #
 ###########
+#
+# srebase => svn update
+# scommit -> svn commit
 
+# check if there are no changes and untracked files present
+function nothing_changed_something_untracked {
+  [[ $(git status 2> /dev/null | tail -n1) != 'nothing added to commit but untracked files present (use "git add" to track)' ]]; true
+}
+# check if there are changes and untracked files present
+  function something_changed_something_untracked {
+[[ $(git status 2> /dev/null | tail -n1) != 'no changes added to commit (use "git add" and/or "git commit -a")' ]]; true
+}
+# check if there is something to stash
+function something_to_stash {
+  [[ $(git status 2> /dev/null | tail -n1) != "nothing to commit (working directory clean)" ]]; true
+}
+# check if on master branch
+function on_master {
+  [[ $(git branch --no-color 2> /dev/null | sed -e '/^[^*]/d' -e "s/* \(.*\)/\1/") == "master" ]]; true
+}
+
+#svn update
 function git_rebase {
-# only stash if working directory not clean
-if [[ $(git status 2> /dev/null | tail -n1) != "nothing to commit (working directory clean)" ]]; then
-  git stash && git svn rebase && git stash pop #rebase svn
-else
-  git svn rebase #rebase svn
+if on_master; then
+  git checkout master
+elif something_to_stash; then
+  git stash save svntmp &&
+  if nothing_changed_something_untracked | something_changed_something_untracked; then
+    echo 'there are untracked files present (use "git add" to track)'
+    else
+    git svn rebase && git stash apply svntmp && git stash drop svntmp
+  fi
+  else
+  git svn rebase
 fi
 }
 alias srebase=git_rebase
 
+#svn commit
 function git_commit {
-# only stash if working directory not clean
-if [[ $(git status 2> /dev/null | tail -n1) != "nothing to commit (working directory clean)" ]]; then
-  git stash && git svn dcommit && git stash pop #commit to svn
-else
-  git svn dcommit #commit to svn
+if ! on_master; then
+  git checkout master
+elif something_to_stash; then
+  git stash save svntmp &&
+  if nothing_changed_something_untracked | something_changed_something_untracked; then
+    echo 'there are untracked files present (use "git add" to track)'
+    exit 0
+    else
+    git svn dcommit && git stash apply svntmp && git stash drop svntmp
+  fi
+  else
+  git svn dcommit
 fi
 }
 alias scommit=git_commit
