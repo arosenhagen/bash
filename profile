@@ -92,10 +92,10 @@ function set_prompt {
 
     local user="$WHITE[$LIGHT_RED\u$WHITE@$HOST_COLOUR$HOSTNAME$WHITE]"
 
-if [ $(parse_git_branch) ] ; then
+if [ $(git_prompt_info) ] ; then
     PS1="${user}\$WHITE[$LIGHT_BLUE`date '+%X'`$WHITE]$NO_COLOUR\
 
-\e[0;35m\]$(parse_git_branch)\[\e[m\]
+\e[0;35m\]$(git_prompt_info)\[\e[m\]
 $WHITE($YELLOW\w$WHITE)\
 
 $ $NO_COLOUR"
@@ -175,13 +175,6 @@ alias gu="git pull --rebase && git push origin HEAD"
 # make sure you have the right chmod (755):
 source ~/git-bash-completion.sh
 
-# this will give you a colored bash:
-function parse_git_dirty {
-  [[ $(git status 2> /dev/null | tail -n1) != "nothing to commit (working directory clean)" ]] && echo "*"
-}
-function parse_git_branch {
-  git branch --no-color 2> /dev/null | sed -e '/^[^*]/d' -e "s/* \(.*\)/[\1$(parse_git_dirty)]/"
-}
 
 ###########
 # GIT-SVN #
@@ -190,54 +183,53 @@ function parse_git_branch {
 # srebase => svn update
 # scommit -> svn commit
 
-# check if there are no changes and untracked files present
-function nothing_changed_something_untracked {
-  [[ $(git status 2> /dev/null | tail -n1) != 'nothing added to commit but untracked files present (use "git add" to track)' ]]; true
-}
-# check if there are changes and untracked files present BUGGY
-  function something_changed_something_untracked {
-[[ $(git status 2> /dev/null | tail -n1) != 'no changes added to commit (use "git add" and/or "git commit -a")' ]]; true
-}
-# check if there is something to stash
-function something_to_stash {
-  [[ $(git status 2> /dev/null | tail -n1) != "nothing to commit (working directory clean)" ]]; true
+# Get the name of the branch we are on
+function git_prompt_info {
+  branch_prompt=$(__git_ps1)
+  if [ -n "$branch_prompt" ]; then
+    echo $branch_prompt$(git_state_character)
+  fi
 }
 # check if on master branch
-function on_master {
-  [[ $(git branch --no-color 2> /dev/null | sed -e '/^[^*]/d' -e "s/* \(.*\)/\1/") == "master" ]]; true
+function git_on_master {
+  if [[ $(git_prompt_info | grep 'master' 2> /dev/null) ]]; then
+    echo true
+  fi
 }
+# true if changes are pending
+function git_state {
+  if [[ $(git status | grep 'added to commit' 2> /dev/null) ]]; then
+    echo true
+  fi
+}
+# shows character if changes are pending
+function git_state_character {
+  if [[ $(git_state) ]]; then
+    echo "*"
+  fi
+}
+
 
 #svn update
 function git_rebase {
-if on_master; then
-  git checkout master
-elif something_to_stash; then
-  git stash save svntmp &&
-  if nothing_changed_something_untracked | something_changed_something_untracked; then
-    echo 'there are untracked files present (use "git add" to track)'
-    else
-    git svn rebase && git stash apply svntmp && git stash drop svntmp
-  fi
+  if git_on_master; then
+    git checkout master
+  elif git_state; then
+    git stash save svntmp && git svn rebase && git stash apply svntmp && git stash drop svntmp
   else
-  git svn rebase
-fi
+    git svn rebase
+  fi
 }
 alias srebase=git_rebase
 
 #svn commit
 function git_commit {
-if ! on_master; then
-  git checkout master
-elif something_to_stash; then
-  git stash save svntmp &&
-  if nothing_changed_something_untracked | something_changed_something_untracked; then
-    echo 'there are untracked files present (use "git add" to track)'
-    exit 0
-    else
-    git svn dcommit && git stash apply svntmp && git stash drop svntmp
-  fi
+  if ! git_on_master; then
+    git checkout master
+  elif git_state; then
+    git stash save svntmp && git svn dcommit && git stash apply svntmp && git stash drop svntmp
   else
-  git svn dcommit
-fi
+    git svn dcommit
+  fi
 }
 alias scommit=git_commit
